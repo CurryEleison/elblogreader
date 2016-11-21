@@ -1,4 +1,5 @@
 import boto3
+import os
 import StringIO
 from datetime import tzinfo, datetime, timedelta
 import csv
@@ -31,6 +32,27 @@ class LogDataFrame:
             buf.close()
         variables = loglines[0].__dict__.keys()
         return pd.DataFrame([[getattr(i,j) for j in variables] for i in loglines], columns = variables)
+
+# A class to download a list of S3 log files to a folder
+class LogFileDownloader:
+    """LogFileDownLoader"""
+
+    def __init__(self, s3res, folder):
+        self.folder = folder
+        self.s3res = s3res
+
+    def download_logs(self, s3items):
+        fullfoldername = os.path.expanduser(self.folder)
+        if not os.path.exists(fullfoldername):
+            os.makedirs(fullfoldername)
+        for s3objsummary in s3items:
+            s3obj = self.s3res.Object(s3objsummary.bucket_name, s3objsummary.key)
+            s3objfilename = os.path.basename(s3objsummary.key)
+            logfiletarget = os.path.expanduser(os.path.join(fullfoldername, s3objfilename))
+            print logfiletarget
+            if os.path.exists(logfiletarget):
+                os.remove(logfiletarget)
+            s3obj.download_file(logfiletarget)
 
 
 #A class to get recent files from S3
