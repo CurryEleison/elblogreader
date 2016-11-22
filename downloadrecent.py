@@ -1,14 +1,15 @@
-from awslogparse import LogFileList, LogFileDownloader
+from awslogparse import LogFileList, LogFileDownloader, UTC
 import boto3
 import pandas as pd
 
 def main():
 
     s3 = boto3.resource('s3')
+    reftime = datetime(2016, 11, 21, 23, 30, 00, 0, UTC())
     # Set up to get recent logfiles
-    loglistgetter = LogFileList(s3res = s3, minimumfiles = 10)
+    loglistgetter = LogFileList(s3res = s3, minimumfiles = 25)
     # possible values are: adm, api, mainsites, simplesitecom, userdomains, usermainsites, usersimplesites
-    recents = loglistgetter.get_recents("simplesitecom")
+    recents = loglistgetter.get_recents("mainsites")
     # Set up object to read in the logfiles
 
     downloader = LogFileDownloader(folder = '~/junk', s3res = s3)

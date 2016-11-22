@@ -19,7 +19,7 @@ class LogDataFrame:
 
     # Maybe add an argument to exclude lines. Perhaps a lambda that takes 
     # a LogLine object and returns a bool or something to scan a string and return a bool
-    def make_dataframe(self, s3items):
+    def make_dataframe(self, s3items, loglinefilter=None):
         loglines = []
         for s3objsummary in s3items:
             s3obj = self.s3res.Object(s3objsummary.bucket_name, s3objsummary.key)
@@ -28,10 +28,13 @@ class LogDataFrame:
             buf.seek(0)
             csvreader = csv.reader(buf, delimiter = ' ', quotechar = '"')
             for row in csvreader:
-                loglines.append(LogLine(row))
+                l = LogLine(row)
+                if ((loglinefilter == None) or (loglinefilter(l) == True)):
+                    loglines.append(l)
             buf.close()
-        variables = loglines[0].__dict__.keys()
-        return pd.DataFrame([[getattr(i,j) for j in variables] for i in loglines], columns = variables)
+        if len(loglines) > 0:
+            variables = loglines[0].__dict__.keys()
+            return pd.DataFrame([[getattr(i,j) for j in variables] for i in loglines], columns = variables)
 
 # A class to download a list of S3 log files to a folder
 class LogFileDownloader:
@@ -55,30 +58,39 @@ class LogFileDownloader:
             s3obj.download_file(logfiletarget)
 
 
-#A class to get recent files from S3
+#A class to get a few recent ELB logfiles from S3
 class LogFileList:
     """LogFileList"""
 
-    def __init__(self, s3res, account = '377243189808', region = 'eu-west-1', minimumfiles = 5):
+    def __init__(self, s3res, account = '377243189808', region = 'eu-west-1', 
+            bucket = "123logging", minimumfiles = 5, strictreftime = False):
         self.account = account
         self.region = region
         self.minimumfiles = minimumfiles
         self.s3res = s3res
+        self.bucket = bucket
+        self.strictreftime = strictreftime
 
-    def get_recents(self, lbname):
+    def get_recents(self, lbname, refdate=None):
         utc = UTC()
         allitems = []
         iterations = 0
         maxiterations = 15
         tenminspast = timedelta(minutes=-10)
-        mytime = datetime.now(utc)
+        starttime = refdate if refdate != None else datetime.now(utc) 
+        mytime = starttime
         s3foldertemplate = "loadbalancers/{loadbalancer}/AWSLogs/{account}/elasticloadbalancing/{region}/{dt.year:0>4}/{dt.month:0>2}/{dt.day:0>2}/"
         s3filekeyroottemplate = "{account}_elasticloadbalancing_{region}_{loadbalancer}_{dt.year:0>4}{dt.month:0>2}{dt.day:0>2}T{dt.hour:0>2}"
         while (len(allitems) <= self.minimumfiles and iterations < maxiterations):
             folderprefix = s3foldertemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region) 
             itemprefix = s3filekeyroottemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region )
-            bucket = self.s3res.Bucket("123logging")
-            allitems.extend(sorted(bucket.objects.filter(Prefix=folderprefix + itemprefix), key = lambda item: item.last_modified, reverse=True))
+            bucket = self.s3res.Bucket(self.bucket)
+            allitems.extend(
+                    filter(
+                        lambda item: (self.strictreftime == False) or (refdate == None) or (item.last_modified < refdate), 
+                        sorted(
+                            bucket.objects.filter(Prefix=folderprefix + itemprefix), 
+                            key = lambda item: item.last_modified, reverse=True)))
             iterations += 1
             mytime += tenminspast
             
