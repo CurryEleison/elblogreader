@@ -1,18 +1,19 @@
 from awslogparse import LogFileList, LogFileDownloader, UTC
+from datetime import datetime
 import boto3
 import pandas as pd
 
 def main():
 
     s3 = boto3.resource('s3')
-    reftime = datetime(2016, 11, 21, 23, 30, 00, 0, UTC())
+    # reftime = datetime(2016, 11, 23, 23, 30, 00, 0, UTC())
     # Set up to get recent logfiles
-    loglistgetter = LogFileList(s3res = s3, minimumfiles = 25)
+    loglistgetter = LogFileList(s3res = s3, minimumfiles = 100)
     # possible values are: adm, api, mainsites, simplesitecom, userdomains, usermainsites, usersimplesites
-    recents = loglistgetter.get_recents("mainsites")
+    recents = loglistgetter.get_recents("adm")
     # Set up object to read in the logfiles
 
-    downloader = LogFileDownloader(folder = '~/junk', s3res = s3)
+    downloader = LogFileDownloader(folder = '~/adm-2016-11-23', s3res = s3)
     downloader.download_logs(recents)
 
 
@@ -22,7 +23,7 @@ def main():
     
     
     # print out names and timestamps of recents
-    printrecentssummary(s3, recents)
+    # printrecentssummary(s3, recents)
 
     # Print hottest IPs
     # ipsummary = df[['remoteip', 'remoteport']].groupby('remoteip').agg('count').sort_values('remoteport', ascending=False)

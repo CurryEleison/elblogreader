@@ -6,6 +6,7 @@ import csv
 import pandas as pd
 import numpy as np
 from urlparse import urlparse
+import hashlib
 
 ZERO = timedelta(0)
 
@@ -26,23 +27,42 @@ class LogDataFrame:
             buf = StringIO.StringIO()
             s3obj.download_fileobj(buf)
             buf.seek(0)
-            csvreader = csv.reader(buf, delimiter = ' ', quotechar = '"')
-            for row in csvreader:
-                l = LogLine(row)
-                if ((loglinefilter == None) or (loglinefilter(l) == True)):
-                    loglines.append(l)
+            self.append_lines(buf, loglines, loglinefilter)
             buf.close()
+        return self.get_df_from_loglines(loglines)
+
+    def make_dataframe_fromfolder(self, foldername, loglinefilter=None):
+        fullfoldername = os.path.expanduser(foldername)
+        if os.path.exists(fullfoldername):
+            loglines = []
+            filelist = [f for f in os.listdir(fullfoldername) if os.path.isfile(os.path.join(fullfoldername, f))]
+            for filename in filelist:
+                with open(os.path.join(fullfoldername, filename), 'rb') as buf:
+                    self.append_lines(buf, loglines, loglinefilter)
+            return self.get_df_from_loglines(loglines)
+
+    def append_lines(self, f, loglines, loglinefilter):
+        csvreader = csv.reader(f, delimiter = ' ', quotechar = '"')
+        for row in csvreader:
+            l = LogLine(row)
+            if ((loglinefilter == None) or (loglinefilter(l) == True)):
+                loglines.append(l)
+
+    def get_df_from_loglines(self, loglines):
         if len(loglines) > 0:
             variables = loglines[0].__dict__.keys()
             return pd.DataFrame([[getattr(i,j) for j in variables] for i in loglines], columns = variables)
+
+
 
 # A class to download a list of S3 log files to a folder
 class LogFileDownloader:
     """LogFileDownLoader"""
 
-    def __init__(self, s3res, folder):
+    def __init__(self, s3res, folder, skipexisting = True):
         self.folder = folder
         self.s3res = s3res
+        self.skipexisting = skipexisting
 
     def download_logs(self, s3items):
         fullfoldername = os.path.expanduser(self.folder)
@@ -52,10 +72,14 @@ class LogFileDownloader:
             s3obj = self.s3res.Object(s3objsummary.bucket_name, s3objsummary.key)
             s3objfilename = os.path.basename(s3objsummary.key)
             logfiletarget = os.path.expanduser(os.path.join(fullfoldername, s3objfilename))
-            print logfiletarget
-            if os.path.exists(logfiletarget):
-                os.remove(logfiletarget)
+            if os.path.exists(logfiletarget): 
+                # Tried checking ETags, but those are not md5 sums for ELB log files
+                if self.skipexisting:
+                    continue
+                else:
+                    os.remove(logfiletarget)
             s3obj.download_file(logfiletarget)
+
 
 
 #A class to get a few recent ELB logfiles from S3
@@ -74,8 +98,9 @@ class LogFileList:
     def get_recents(self, lbname, refdate=None):
         utc = UTC()
         allitems = []
+        checkedkeys = set()
         iterations = 0
-        maxiterations = 15
+        maxiterations = 500
         tenminspast = timedelta(minutes=-10)
         starttime = refdate if refdate != None else datetime.now(utc) 
         mytime = starttime
@@ -84,13 +109,11 @@ class LogFileList:
         while (len(allitems) <= self.minimumfiles and iterations < maxiterations):
             folderprefix = s3foldertemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region) 
             itemprefix = s3filekeyroottemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region )
-            bucket = self.s3res.Bucket(self.bucket)
-            allitems.extend(
-                    filter(
-                        lambda item: (self.strictreftime == False) or (refdate == None) or (item.last_modified < refdate), 
-                        sorted(
-                            bucket.objects.filter(Prefix=folderprefix + itemprefix), 
-                            key = lambda item: item.last_modified, reverse=True)))
+            fullprefix = folderprefix + itemprefix
+            if (fullprefix not in checkedkeys):
+                bucket = self.s3res.Bucket(self.bucket)
+                allitems.extend( filter( lambda item: (self.strictreftime == False) or (refdate == None) or (item.last_modified < refdate), sorted( bucket.objects.filter(Prefix=folderprefix + itemprefix), key = lambda item: item.last_modified, reverse=True)))
+                checkedkeys.add(fullprefix)
             iterations += 1
             mytime += tenminspast
             
@@ -144,7 +167,6 @@ class LogLine:
         self.path = u.path
         self.useragent = fields[12]
         self.encryption = fields[13]
-
 
 
 
