@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--targetfolder", help="The folder the files are downloaded to")
     parser.add_argument("--numfiles", type=int, help="Number of files to download")
     parser.add_argument("--endtime", help="The last time for which we want logfiles")
+    parser.add_argument("--logfolder", help="Subfolder in S3 if different from load balancer name")
     args = parser.parse_args()
 
     s3 = boto3.resource('s3')
@@ -25,9 +26,11 @@ def main():
     endtime = datetime.now(UTC()) if args.endtime == None else dateparser.parse(args.endtime, settings={'TIMEZONE': 'UTC'})
     targetfolder = "~/{0}-{1:%Y-%m-%d}".format(lb, endtime) if args.targetfolder == None else args.targetfolder
     numfiles = 5 if args.numfiles == None else args.numfiles
+    lblogfolder = args.logfolder
 
 
-    print "Got thes arguments: lb '{0}' endtime '{1}', folder: '{2}' and numfiles {3}".format(lb, endtime, targetfolder, numfiles)
+
+    print "Downloading {3} logfiles for loadbalancer '{0}' to folder: '{2}'. time should be from the hour around {1} or earlier.".format(lb, endtime, targetfolder, numfiles)
 
 
 #    print args.loadbalancer
@@ -35,13 +38,13 @@ def main():
 
     # reftime = datetime(2016, 11, 23, 23, 30, 00, 0, UTC())
     # Set up to get recent logfiles
-#    loglistgetter = LogFileList(s3res = s3, minimumfiles = 100)
+    loglistgetter = LogFileList(s3res = s3, minimumfiles = numfiles)
     # possible values are: adm, api, mainsites, simplesitecom, userdomains, usermainsites, usersimplesites
-#    recents = loglistgetter.get_recents("adm")
+    recents = loglistgetter.get_recents(lb, refdate = endtime, lblogfolder = lblogfolder)
     # Set up object to read in the logfiles
 
-#    downloader = LogFileDownloader(folder = '~/adm-2016-11-23', s3res = s3)
-#    downloader.download_logs(recents)
+    downloader = LogFileDownloader(folder = targetfolder, s3res = s3)
+    downloader.download_logs(recents)
 
 
     # framegetter = LogDataFrame(s3res = s3)

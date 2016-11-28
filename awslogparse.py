@@ -95,7 +95,7 @@ class LogFileList:
         self.bucket = bucket
         self.strictreftime = strictreftime
 
-    def get_recents(self, lbname, refdate=None):
+    def get_recents(self, lbname, refdate=None, lblogfolder = None):
         utc = UTC()
         allitems = []
         checkedkeys = set()
@@ -103,13 +103,15 @@ class LogFileList:
         maxiterations = 500
         tenminspast = timedelta(minutes=-10)
         starttime = refdate if refdate != None else datetime.now(utc) 
+        logfolder = lblogfolder if lblogfolder != None else lbname
         mytime = starttime
         s3foldertemplate = "loadbalancers/{loadbalancer}/AWSLogs/{account}/elasticloadbalancing/{region}/{dt.year:0>4}/{dt.month:0>2}/{dt.day:0>2}/"
         s3filekeyroottemplate = "{account}_elasticloadbalancing_{region}_{loadbalancer}_{dt.year:0>4}{dt.month:0>2}{dt.day:0>2}T{dt.hour:0>2}"
         while (len(allitems) <= self.minimumfiles and iterations < maxiterations):
-            folderprefix = s3foldertemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region) 
+            folderprefix = s3foldertemplate.format(dt = mytime, loadbalancer = logfolder, account = self.account, region = self.region) 
             itemprefix = s3filekeyroottemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region )
             fullprefix = folderprefix + itemprefix
+            print fullprefix
             if (fullprefix not in checkedkeys):
                 bucket = self.s3res.Bucket(self.bucket)
                 allitems.extend( filter( lambda item: (self.strictreftime == False) or (refdate == None) or (item.last_modified < refdate), sorted( bucket.objects.filter(Prefix=folderprefix + itemprefix), key = lambda item: item.last_modified, reverse=True)))
