@@ -111,8 +111,8 @@ class LogFileList:
             folderprefix = s3foldertemplate.format(dt = mytime, loadbalancer = logfolder, account = self.account, region = self.region) 
             itemprefix = s3filekeyroottemplate.format(dt = mytime, loadbalancer = lbname, account = self.account, region = self.region )
             fullprefix = folderprefix + itemprefix
-            print fullprefix
             if (fullprefix not in checkedkeys):
+                print fullprefix
                 bucket = self.s3res.Bucket(self.bucket)
                 allitems.extend( filter( lambda item: (self.strictreftime == False) or (refdate == None) or (item.last_modified < refdate), sorted( bucket.objects.filter(Prefix=folderprefix + itemprefix), key = lambda item: item.last_modified, reverse=True)))
                 checkedkeys.add(fullprefix)
