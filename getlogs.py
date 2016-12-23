@@ -1,4 +1,3 @@
-from awslogparse import LogFileList, LogFileDownloader, UTC
 from datetime import datetime
 import boto3
 import argparse
@@ -6,6 +5,7 @@ import warnings
 from ruamel.yaml.error import UnsafeLoaderWarning
 warnings.simplefilter('ignore', UnsafeLoaderWarning)
 import dateparser
+from AwsElbLogUtil import LogFileList, LogFileDownloader, UTC
 
 # these are here for the benefit of dateparser Russian dates. Maybe look for a safer dateparser somewhere
 

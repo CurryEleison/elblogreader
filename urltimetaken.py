@@ -1,4 +1,4 @@
-from awslogparse import LogFileList, LogDataFrame, UTC
+from AwsElbLogUtil import LogFileList, LogDataFrame, UTC
 from datetime import datetime
 import boto3
 import pandas as pd

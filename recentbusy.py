@@ -1,4 +1,4 @@
-from awslogparse import LogFileList, LogDataFrame
+from AwsElbLogUtil import LogFileList, LogDataFrame
 import boto3
 import pandas as pd
 
