@@ -8,7 +8,7 @@ def main():
     # Set up to get recent logfiles
     loglistgetter = LogFileList(s3res = s3)
     # possible values are: adm, api, mainsites, simplesitecom, userdomains, usermainsites, usersimplesites
-    recents = loglistgetter.get_recents("simplesitecom")
+    recents = loglistgetter.get_recents_elb("userdomains")
     # Set up object to read in the logfiles
     framegetter = LogDataFrame(s3res = s3)
     # Take filenames, download and make into a dataframe

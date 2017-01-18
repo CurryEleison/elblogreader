@@ -10,7 +10,7 @@ def main():
     # Set up to get recent logfiles
     loglistgetter = LogFileList(s3res = s3, minimumfiles = 100)
     # possible values are: adm, api, mainsites, simplesitecom, userdomains, usermainsites, usersimplesites
-    recents = loglistgetter.get_recents("adm")
+    recents = loglistgetter.get_recents_elb("adm")
     # Set up object to read in the logfiles
 
     downloader = LogFileDownloader(folder = '~/adm-2016-11-23', s3res = s3)
